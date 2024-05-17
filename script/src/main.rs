@@ -13,12 +13,18 @@ fn main() {
     let h1: ExtendedHeader = serde_json::from_reader(header1_file).unwrap();
     let h2: ExtendedHeader = serde_json::from_reader(header2_file).unwrap();
     
+    let encoded_1 = serde_cbor::to_vec(&h1).unwrap();
+    let encoded_2 = serde_cbor::to_vec(&h2).unwrap();
+    
     // write the headers
-    stdin.write(&h1);
-    stdin.write(&h2);
+    stdin.write_vec(encoded_1);
+    stdin.write_vec(encoded_2);
 
     let client = ProverClient::new();
-    let mut public_values = client.execute(&ELF, stdin).unwrap();
-    let result: bool = public_values.read();
-    println!("result is: {}", result);
+    let (pk, vk) = client.setup(&ELF);
+
+    let proof = client.prove_compressed(&pk, stdin).expect("couldn't prove");
+    //let mut public_values = client.execute(&ELF, stdin).unwrap();
+    let result = proof.public_values.to_vec();
+    println!("result is: {:?}", result);
 }
