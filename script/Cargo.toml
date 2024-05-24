@@ -5,11 +5,11 @@ name = "cryptographic_sync-script"
 edition = "2021"
 
 [dependencies]
-sp1-sdk = { git = "https://github.com/succinctlabs/sp1.git", rev = "v1.0.0-testnet" }
+sp1-sdk = { git = "https://github.com/succinctlabs/sp1.git", branch="main" }
 serde_json = { version = "1.0", default-features = false, features = ["alloc", "std"] }
 serde = { version = "1.0", default-features = false, features = ["derive", "std"] }
 serde_cbor = "0.11.2"
 celestia-types = {path = "../../upstream-lumina/types"}
 
 [build-dependencies]
-sp1-helper = { git = "https://github.com/succinctlabs/sp1.git", rev = "v1.0.0-testnet"  }
+sp1-helper = { git = "https://github.com/succinctlabs/sp1.git", branch="main"  }
