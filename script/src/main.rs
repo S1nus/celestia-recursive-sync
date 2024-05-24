@@ -10,7 +10,7 @@ fn main() {
 
     // Initialize ProverClient
     let client = ProverClient::new();
-    let (_pk, vk) = client.setup(ELF);
+    let (pk, vk) = client.setup(ELF);
     let mut stdin = SP1Stdin::new();
 
     let proof_file = std::fs::File::open("proof.json").unwrap();
@@ -41,7 +41,15 @@ fn main() {
     // write the proof
     stdin.write_proof(proof.proof, vk.vk);
 
-    let mut public_values = client.execute(ELF, stdin).expect("could not execute");
+    //let mut public_values = client.execute(ELF, stdin).expect("could not execute");
+    let start_time = Instant::now();
+    let proof = client.prove_compressed(&pk, stdin).expect("could not prove");
+    let end_time = Instant::now();
+    println!("Proof generation time: {:?}", end_time.duration_since(start_time));
+    let mut genesis_proof_file = std::fs::File::create("proof0.json").unwrap();
+    genesis_proof_file.write_all(serde_json::to_string(&proof).unwrap().as_bytes()).unwrap();
+
+    let mut public_values = proof.public_values;
     println!("public values: {:?}", public_values);
     let vkey_out: Vec<u8> = public_values.read();
     let zk_genesis_hash: Vec<u8> = public_values.read();
