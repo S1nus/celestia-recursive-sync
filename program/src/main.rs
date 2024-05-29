@@ -21,15 +21,12 @@ pub fn main() {
 
     let public_values: Vec<u8> = sp1_zkvm::io::read();
     let mut public_values_buffer = Buffer::from(&public_values);
-    println!("{:?}", public_values_buffer);
     let public_values_digest = Sha256::digest(&public_values);
     let zk_genesis_hash = sp1_zkvm::io::read_vec();
     sp1_zkvm::io::commit(&zk_genesis_hash);
     let h1_bytes = sp1_zkvm::io::read_vec();
     let h2_bytes = sp1_zkvm::io::read_vec();
-    println!("getting header1");
     let h1: Option<ExtendedHeader> = serde_cbor::from_slice(&h1_bytes).expect("couldn't deserialize h1");
-    println!("getting header2");
     let h2: ExtendedHeader = serde_cbor::from_slice(&h2_bytes).expect("couldn't deserialize h2");
     // commit h2 hash
     sp1_zkvm::io::commit(&h2.header.hash().as_bytes().to_vec());
