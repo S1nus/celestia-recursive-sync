@@ -1,0 +1,11 @@
+[package]
+name = "tests"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+sp1-sdk = { git = "https://github.com/succinctlabs/sp1.git", branch="main" }
+serde_json = { version = "1.0", default-features = false, features = ["alloc", "std"] }
+serde = { version = "1.0", default-features = false, features = ["derive", "std"] }
+serde_cbor = "0.11.2"
+celestia-types = {path = "../../upstream-lumina/types"}

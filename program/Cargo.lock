@@ -476,7 +476,9 @@ dependencies = [
 name = "cryptographic_sync-program"
 version = "0.1.0"
 dependencies = [
+ "bincode",
  "celestia-types",
+ "serde",
  "serde_cbor",
  "sha2 0.10.8",
  "sp1-zkvm",
