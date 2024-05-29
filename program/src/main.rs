@@ -21,6 +21,7 @@ pub fn main() {
 
     let public_values: Vec<u8> = sp1_zkvm::io::read();
     let mut public_values_buffer = Buffer::from(&public_values);
+    println!("{:?}", public_values_buffer);
     let public_values_digest = Sha256::digest(&public_values);
     let zk_genesis_hash = sp1_zkvm::io::read_vec();
     sp1_zkvm::io::commit(&zk_genesis_hash);
@@ -32,7 +33,6 @@ pub fn main() {
     let h2: ExtendedHeader = serde_cbor::from_slice(&h2_bytes).expect("couldn't deserialize h2");
     // commit h2 hash
     sp1_zkvm::io::commit(&h2.header.hash().as_bytes().to_vec());
-    println!("going to verify header");
 
     match h1 {
         Some(h1) => {
@@ -60,9 +60,8 @@ pub fn main() {
                 return;
             }
             // Ensure that previous proof is valid
-            let last_result: Vec<u8> = public_values_buffer.read();
-            println!("last result: {:?}", last_result);
-            if last_result[0] != 1 {
+            let last_result: bool = public_values_buffer.read();
+            if !last_result {
                 println!("expected last proof to be valid: {:?}", last_result);
                 sp1_zkvm::io::commit(&false);
                 return;

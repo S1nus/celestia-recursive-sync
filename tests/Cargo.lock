@@ -4882,6 +4882,7 @@ dependencies = [
 name = "tests"
 version = "0.1.0"
 dependencies = [
+ "bincode",
  "celestia-types",
  "serde",
  "serde_cbor",
