@@ -26,16 +26,16 @@ fn main() {
     sp1_sdk::utils::setup_logger();
 
     println!("Loading proof from file");
-    let proof_file = std::fs::File::open("proof.json").unwrap();
+    let proof_file = std::fs::File::open("data/proof.json").unwrap();
     let proof: serde_json::Value = serde_json::from_reader(proof_file).unwrap();
     // Reading public values from the proof directly since the types changed.
     let proof_public_values = proof["proof"]["public_values"].clone();
     // println!("proof_public_values: {:?}", proof_public_values);
 
     println!("Loading headers");
-    let zk_genesis_file = std::fs::File::open("zkgenesis.json").unwrap();
-    let header1_file = std::fs::File::open("nethead2.json").unwrap();
-    let header2_file = std::fs::File::open("skipheader.json").unwrap();
+    let zk_genesis_file = std::fs::File::open("data/zkgenesis.json").unwrap();
+    let header1_file = std::fs::File::open("data/nethead2.json").unwrap();
+    let header2_file = std::fs::File::open("data/skipheader.json").unwrap();
     // The header we treat as the genesis
     // zk genesis height = 1798987
     let zk_genesis: ExtendedHeader = serde_json::from_reader(zk_genesis_file).unwrap();
@@ -79,7 +79,7 @@ fn main() {
     let end_time = Instant::now();
     println!("proof0 generation time: {:?}", end_time.duration_since(start_time));
     println!("Saving proof #0 to file");
-    let mut proof0_file = std::fs::File::create("proof0.json").unwrap();
+    let mut proof0_file = std::fs::File::create("data/proof0.json").unwrap();
     proof0_file.write_all(serde_json::to_string(&proof0).unwrap().as_bytes()).unwrap();
 
     let mut public_values = proof0.public_values.clone();
@@ -127,7 +127,7 @@ fn main() {
     let end_time = Instant::now();
     println!("proof1 generation time: {:?}", end_time.duration_since(start_time));
     println!("Saving proof #1 to file");
-    let mut proof1_file = std::fs::File::create("proof1.json").unwrap();
+    let mut proof1_file = std::fs::File::create("data/proof1.json").unwrap();
     proof1_file.write_all(serde_json::to_string(&proof1).unwrap().as_bytes()).unwrap();
 
     println!("Reading public values from proof1");
