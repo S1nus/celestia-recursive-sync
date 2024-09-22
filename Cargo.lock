@@ -1238,7 +1238,6 @@ dependencies = [
  "sp1-helper",
  "sp1-sdk",
  "tracing",
- "web-time",
 ]
 
 [[package]]

@@ -28,7 +28,7 @@ pub fn main() {
 
     match h1 {
         Some(h1) => {
-            println!("it's some");
+            println!("[ZK] Verifying proof (h1 + h2)...");
             // Ensure that we are verifying a proof of the same circuit as ourself
             let last_vkey_hash: Vec<u8> = public_values_buffer.read();
             if &last_vkey_hash != &hash_of_vkey.to_vec() {
@@ -36,7 +36,7 @@ pub fn main() {
                 sp1_zkvm::io::commit(&false);
                 return;
             }
-
+            
             // Ensure that the previous proof has the same genesis hash as the current proof
             let last_genesis_hash: Vec<u8> = public_values_buffer.read();
             if last_genesis_hash != zk_genesis_hash {
@@ -51,6 +51,7 @@ pub fn main() {
                 sp1_zkvm::io::commit(&false);
                 return;
             }
+
             // Ensure that previous proof is valid
             let last_result: bool = public_values_buffer.read();
             if !last_result {
@@ -62,21 +63,23 @@ pub fn main() {
             // Verify the previous recursion layer
             // Note that to verify an SP1 proof inside SP1, you must generate a "compressed" SP1 proof (see Proof Types for more details).
             // https://github.com/succinctlabs/sp1/blob/dev/book/writing-programs/proof-aggregation.md
-            println!("going to verify proof");
+            println!("[ZK] Verifying proof...");
             // sp1_zkvm::lib::verify::verify_proof() can also be used here.
             sp1_zkvm::lib::verify::verify_sp1_proof(&vkey, &public_values_digest.into());
+            println!("[ZK] Done.");
 
             // Perform Tendermint (Celestia consensus) verification
-            println!("performing header verification");
+            println!("[ZK] Header verification...");
             if h1.verify(&h2).is_ok() {
+            println!("[ZK] Success.");
                 sp1_zkvm::io::commit(&true);
             } else {
+                println!("[ZK] Failed.");
                 sp1_zkvm::io::commit(&false);
             }
-            println!("done with header verification");
         },
         None => {
-            println!("it's none.");
+            println!("[ZK] Verifying genesis proof (nil + h2)...");
             if h2.header.hash().as_bytes() == zk_genesis_hash {
                 sp1_zkvm::io::commit(&true);
             } else {
