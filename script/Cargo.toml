@@ -1,15 +1,24 @@
-[workspace]
 [package]
 version = "0.1.0"
 name = "cryptographic_sync-script"
 edition = "2021"
+default-run = "main"
+
+[[bin]]
+name = "main"
+path = "src/bin/main.rs"
 
 [dependencies]
-sp1-sdk = { git = "https://github.com/succinctlabs/sp1.git", branch="main" }
-serde_json = { version = "1.0", default-features = false, features = ["alloc", "std"] }
-serde = { version = "1.0", default-features = false, features = ["derive", "std"] }
+sp1-sdk = "2.0.0"
+serde_json = { version = "1.0", default-features = false, features = ["alloc"] }
+serde = { version = "1.0", default-features = false, features = ["derive"] }
+clap = { version = "4.0", features = ["derive", "env"] }
+tracing = "0.1.40"
+hex = "0.4.3"
+alloy-sol-types = { workspace = true }
+# Path to the celestia-types crate (with RISCV fix): https://github.com/msuiche/lumina
+celestia-types = {path = "../../lumina-msuiche/types"}
 serde_cbor = "0.11.2"
-celestia-types = {path = "../../upstream-lumina/types"}
 
 [build-dependencies]
-sp1-helper = { git = "https://github.com/succinctlabs/sp1.git", branch="main"  }
+sp1-helper = "2.0.0"

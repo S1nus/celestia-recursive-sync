@@ -1,21 +1,16 @@
-//! A simple program to be proven inside the zkVM.
-
 #![no_main]
 sp1_zkvm::entrypoint!(main);
-use celestia_types::ExtendedHeader;
+
 use sha2::{Sha256, Digest};
+use celestia_types::ExtendedHeader;
 mod buffer;
 use buffer::Buffer;
 
 pub fn main() {
-    // NOTE: values of n larger than 186 will overflow the u128 type,
-    // resulting in output that doesn't match fibonacci sequence.
-    // However, the resulting proof will still be valid!
-
     let vkey: [u32; 8] = sp1_zkvm::io::read();
-    let byte_slice: &[u8] = unsafe {
-        core::slice::from_raw_parts(vkey.as_ptr() as *const u8, vkey.len() * core::mem::size_of::<u32>())
-    };
+    let byte_slice: Vec<u8> = vkey.iter()
+        .flat_map(|&x| x.to_le_bytes().to_vec())
+        .collect();
     let hash_of_vkey = Sha256::digest(&byte_slice);
     sp1_zkvm::io::commit(&hash_of_vkey.to_vec());
 
@@ -24,17 +19,16 @@ pub fn main() {
     let public_values_digest = Sha256::digest(&public_values);
     let zk_genesis_hash = sp1_zkvm::io::read_vec();
     sp1_zkvm::io::commit(&zk_genesis_hash);
+
     let h1_bytes = sp1_zkvm::io::read_vec();
     let h2_bytes = sp1_zkvm::io::read_vec();
     let h1: Option<ExtendedHeader> = serde_cbor::from_slice(&h1_bytes).expect("couldn't deserialize h1");
     let h2: ExtendedHeader = serde_cbor::from_slice(&h2_bytes).expect("couldn't deserialize h2");
-    // commit h2 hash
     sp1_zkvm::io::commit(&h2.header.hash().as_bytes().to_vec());
 
     match h1 {
         Some(h1) => {
-
-            println!("it's some");
+            println!("[ZK] Verifying proof (h1 + h2)...");
             // Ensure that we are verifying a proof of the same circuit as ourself
             let last_vkey_hash: Vec<u8> = public_values_buffer.read();
             if &last_vkey_hash != &hash_of_vkey.to_vec() {
@@ -42,6 +36,7 @@ pub fn main() {
                 sp1_zkvm::io::commit(&false);
                 return;
             }
+            
             // Ensure that the previous proof has the same genesis hash as the current proof
             let last_genesis_hash: Vec<u8> = public_values_buffer.read();
             if last_genesis_hash != zk_genesis_hash {
@@ -56,6 +51,7 @@ pub fn main() {
                 sp1_zkvm::io::commit(&false);
                 return;
             }
+
             // Ensure that previous proof is valid
             let last_result: bool = public_values_buffer.read();
             if !last_result {
@@ -65,20 +61,25 @@ pub fn main() {
             }
 
             // Verify the previous recursion layer
-            println!("going to verify proof");
-            sp1_zkvm::precompiles::verify::verify_sp1_proof(&vkey, &public_values_digest.into());
+            // Note that to verify an SP1 proof inside SP1, you must generate a "compressed" SP1 proof (see Proof Types for more details).
+            // https://github.com/succinctlabs/sp1/blob/dev/book/writing-programs/proof-aggregation.md
+            println!("[ZK] Verifying proof...");
+            // sp1_zkvm::lib::verify::verify_proof() can also be used here.
+            sp1_zkvm::lib::verify::verify_sp1_proof(&vkey, &public_values_digest.into());
+            println!("[ZK] Done.");
 
             // Perform Tendermint (Celestia consensus) verification
-            println!("performing header verification");
+            println!("[ZK] Header verification...");
             if h1.verify(&h2).is_ok() {
+            println!("[ZK] Success.");
                 sp1_zkvm::io::commit(&true);
             } else {
+                println!("[ZK] Failed.");
                 sp1_zkvm::io::commit(&false);
             }
-
         },
         None => {
-            println!("it's none.");
+            println!("[ZK] Verifying genesis proof (nil + h2)...");
             if h2.header.hash().as_bytes() == zk_genesis_hash {
                 sp1_zkvm::io::commit(&true);
             } else {
@@ -86,5 +87,4 @@ pub fn main() {
             }
         }
     }
-
 }
