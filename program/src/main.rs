@@ -2,10 +2,13 @@
 
 #![no_main]
 sp1_zkvm::entrypoint!(main);
-use celestia_types::ExtendedHeader;
 use sha2::{Sha256, Digest};
 mod buffer;
 use buffer::Buffer;
+use core::time::Duration;
+use tendermint_light_client_verifier::{
+    options::Options, types::LightBlock, ProdVerifier, Verdict, Verifier,
+};
 
 pub fn main() {
     // NOTE: values of n larger than 186 will overflow the u128 type,
@@ -22,14 +25,16 @@ pub fn main() {
     let public_values: Vec<u8> = sp1_zkvm::io::read();
     let mut public_values_buffer = Buffer::from(&public_values);
     let public_values_digest = Sha256::digest(&public_values);
-    let zk_genesis_hash = sp1_zkvm::io::read_vec();
-    sp1_zkvm::io::commit(&zk_genesis_hash);
+
+    let genesis_hash = sp1_zkvm::io::read_vec();
+    sp1_zkvm::io::commit(&genesis_hash);
+
     let h1_bytes = sp1_zkvm::io::read_vec();
     let h2_bytes = sp1_zkvm::io::read_vec();
-    let h1: Option<ExtendedHeader> = serde_cbor::from_slice(&h1_bytes).expect("couldn't deserialize h1");
-    let h2: ExtendedHeader = serde_cbor::from_slice(&h2_bytes).expect("couldn't deserialize h2");
+    let h1: Option<LightBlock> = serde_cbor::from_slice(&h1_bytes).expect("couldn't deserialize h1");
+    let h2: LightBlock = serde_cbor::from_slice(&h2_bytes).expect("couldn't deserialize h2");
     // commit h2 hash
-    sp1_zkvm::io::commit(&h2.header.hash().as_bytes().to_vec());
+    sp1_zkvm::io::commit(&h2.signed_header.header().hash());
 
     match h1 {
         Some(h1) => {
@@ -44,15 +49,15 @@ pub fn main() {
             }
             // Ensure that the previous proof has the same genesis hash as the current proof
             let last_genesis_hash: Vec<u8> = public_values_buffer.read();
-            if last_genesis_hash != zk_genesis_hash {
-                println!("expected genesis hashes to match: {:?} != {:?}", last_genesis_hash, zk_genesis_hash);
+            if last_genesis_hash != genesis_hash {
+                println!("expected genesis hashes to match: {:?} != {:?}", last_genesis_hash, genesis_hash);
                 sp1_zkvm::io::commit(&false);
                 return;
             }
             // Ensure that previous proof has the h2 hash as the current h1 hash
             let last_h2_hash: Vec<u8> = public_values_buffer.read();
-            if last_h2_hash != h1.header.hash().as_bytes() {
-                println!("expected previous h2 hash to match new h1: {:?} != {:?}", last_h2_hash, h1.header.hash().as_bytes());
+            if last_h2_hash != h1.signed_header.header().hash().as_bytes() {
+                println!("expected previous h2 hash to match new h1: {:?} != {:?}", last_h2_hash, h1.signed_header.header().hash().as_bytes());
                 sp1_zkvm::io::commit(&false);
                 return;
             }
@@ -70,16 +75,34 @@ pub fn main() {
 
             // Perform Tendermint (Celestia consensus) verification
             println!("performing header verification");
-            if h1.verify(&h2).is_ok() {
-                sp1_zkvm::io::commit(&true);
-            } else {
-                sp1_zkvm::io::commit(&false);
+
+            let vp = ProdVerifier::default();
+            let opt = Options {
+                trust_threshold: Default::default(),
+                // 2 week trusting period.
+                trusting_period: Duration::from_secs(14 * 24 * 60 * 60),
+                clock_drift: Default::default(),
+            };
+            let verify_time = h2.time() + Duration::from_secs(20);
+            let verdict = vp.verify_update_header(
+                h2.as_untrusted_state(),
+                h1.as_trusted_state(),
+                &opt,
+                verify_time.unwrap(),
+            );
+            match verdict {
+                Verdict::Success => {
+                    sp1_zkvm::io::commit(&true);
+                },
+                _ => {
+                    sp1_zkvm::io::commit(&true);
+                }
             }
 
         },
         None => {
             println!("it's none.");
-            if h2.header.hash().as_bytes() == zk_genesis_hash {
+            if h2.signed_header.header().hash().as_bytes() == genesis_hash {
                 sp1_zkvm::io::commit(&true);
             } else {
                 sp1_zkvm::io::commit(&false);
