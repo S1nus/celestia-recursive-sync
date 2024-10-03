@@ -10,6 +10,14 @@ serde_json = { version = "1.0", default-features = false, features = ["alloc", "
 serde = { version = "1.0", default-features = false, features = ["derive", "std"] }
 serde_cbor = "0.11.2"
 celestia-types = {path = "../../upstream-lumina/types"}
+reqwest = { version = "0.11", features = ["json"] }
+tendermint = { version = "0.35.0", default-features = false }
+subtle-encoding = "0.5.1"
+tendermint-light-client-verifier = { version = "0.35.0", default-features = false, features = [
+    "rust-crypto",
+] }
+tokio = { version = "1", features = ["full"] }
+anyhow = "1.0.82"
 
 [build-dependencies]
 sp1-helper = { git = "https://github.com/succinctlabs/sp1.git", branch="main"  }
