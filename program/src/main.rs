@@ -19,7 +19,8 @@ pub fn main() {
     let byte_slice: &[u8] = unsafe {
         core::slice::from_raw_parts(vkey.as_ptr() as *const u8, vkey.len() * core::mem::size_of::<u32>())
     };
-    let hash_of_vkey = Sha256::digest(&byte_slice);
+    let hash_of_vkey = Sha256::digest(byte_slice);
+    println!("committing vkey: {:?}", &hash_of_vkey.to_vec());
     sp1_zkvm::io::commit(&hash_of_vkey.to_vec());
 
     let public_values: Vec<u8> = sp1_zkvm::io::read();
@@ -27,6 +28,7 @@ pub fn main() {
     let public_values_digest = Sha256::digest(&public_values);
 
     let genesis_hash = sp1_zkvm::io::read_vec();
+    println!("committing gen hash: {:?}", &genesis_hash);
     sp1_zkvm::io::commit(&genesis_hash);
 
     let h1_bytes = sp1_zkvm::io::read_vec();
@@ -34,7 +36,8 @@ pub fn main() {
     let h1: Option<LightBlock> = serde_cbor::from_slice(&h1_bytes).expect("couldn't deserialize h1");
     let h2: LightBlock = serde_cbor::from_slice(&h2_bytes).expect("couldn't deserialize h2");
     // commit h2 hash
-    sp1_zkvm::io::commit(&h2.signed_header.header().hash());
+    println!("committing h2 hash: {:?}", &h2.signed_header.header().hash().as_bytes().to_vec());
+    sp1_zkvm::io::commit(&h2.signed_header.header().hash().as_bytes().to_vec());
 
     match h1 {
         Some(h1) => {
@@ -42,36 +45,32 @@ pub fn main() {
             println!("it's some");
             // Ensure that we are verifying a proof of the same circuit as ourself
             let last_vkey_hash: Vec<u8> = public_values_buffer.read();
-            if &last_vkey_hash != &hash_of_vkey.to_vec() {
+            if last_vkey_hash != hash_of_vkey.to_vec() {
                 println!("expected vkeys to match: {:?} != {:?}", last_vkey_hash, hash_of_vkey.to_vec());
-                sp1_zkvm::io::commit(&false);
-                return;
+                panic!("not valid!");
             }
             // Ensure that the previous proof has the same genesis hash as the current proof
             let last_genesis_hash: Vec<u8> = public_values_buffer.read();
             if last_genesis_hash != genesis_hash {
                 println!("expected genesis hashes to match: {:?} != {:?}", last_genesis_hash, genesis_hash);
-                sp1_zkvm::io::commit(&false);
-                return;
+                panic!("not valid!");
             }
             // Ensure that previous proof has the h2 hash as the current h1 hash
             let last_h2_hash: Vec<u8> = public_values_buffer.read();
             if last_h2_hash != h1.signed_header.header().hash().as_bytes() {
                 println!("expected previous h2 hash to match new h1: {:?} != {:?}", last_h2_hash, h1.signed_header.header().hash().as_bytes());
-                sp1_zkvm::io::commit(&false);
-                return;
+                panic!("not valid!");
             }
             // Ensure that previous proof is valid
             let last_result: bool = public_values_buffer.read();
             if !last_result {
                 println!("expected last proof to be valid: {:?}", last_result);
-                sp1_zkvm::io::commit(&false);
-                return;
+                panic!("not valid!");
             }
 
             // Verify the previous recursion layer
             println!("going to verify proof");
-            sp1_zkvm::precompiles::verify::verify_sp1_proof(&vkey, &public_values_digest.into());
+            sp1_zkvm::lib::verify::verify_sp1_proof(&vkey, &public_values_digest.into());
 
             // Perform Tendermint (Celestia consensus) verification
             println!("performing header verification");
@@ -95,7 +94,7 @@ pub fn main() {
                     sp1_zkvm::io::commit(&true);
                 },
                 _ => {
-                    sp1_zkvm::io::commit(&true);
+                    panic!("verification failed");
                 }
             }
 
@@ -105,7 +104,7 @@ pub fn main() {
             if h2.signed_header.header().hash().as_bytes() == genesis_hash {
                 sp1_zkvm::io::commit(&true);
             } else {
-                sp1_zkvm::io::commit(&false);
+                panic!("expected h2 == genesis hash");
             }
         }
     }

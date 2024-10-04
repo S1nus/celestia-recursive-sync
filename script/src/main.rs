@@ -1,12 +1,21 @@
 use core::time::Duration;
 use serde_json;
-use std::{fs, path::Path};
+use std::{
+    io::Write,
+    fs, 
+    path::Path,
+    time::Instant,
+};
 use tendermint_light_client_verifier::{
     options::Options, types::LightBlock, ProdVerifier, Verdict, Verifier,
 };
 mod tm_rpc_utils;
 mod tm_rpc_types;
-use sp1_sdk::{HashableKey, ProverClient, SP1Stdin, SP1CompressedProof};
+use sp1_sdk::{HashableKey, SP1VerifyingKey};
+use sp1_sdk::{SP1Proof, SP1ProofWithPublicValues};
+use sp1_sdk::{ProverClient, SP1Stdin};
+
+pub const ELF: &[u8] = include_bytes!("../../program/elf/riscv32im-succinct-zkvm-elf");
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -32,32 +41,41 @@ async fn main() -> anyhow::Result<()> {
     }
     files.sort_by(|a, b| a.parse::<u32>().unwrap().cmp(&b.parse::<u32>().unwrap()));
 
+    let left_off_proof_file = std::fs::File::open("1015226_proof.json").expect("could not open left_off_proof.json");
+    let mut running_proof: SP1ProofWithPublicValues = serde_json::from_reader(left_off_proof_file).expect("could not parse");
 
+    let running_header_file = std::fs::File::open("needed_headers/1015226.json").unwrap();
+    let mut running_head: Option<LightBlock> = serde_json::from_reader(running_header_file).unwrap();
 
-    /* 
-    // deserialize first file
-    let file = fs::File::open(format!("needed_headers/{}.json", files[0])).unwrap();
-    let reader = std::io::BufReader::new(file);
-    let first_block: LightBlock = serde_json::from_reader(reader).unwrap();
+    // header where i got booted off wifi
+    let left_off: String = "1015226".to_string();
+    let start = files.iter().position(|r| *r == left_off).unwrap()+1;
 
-    let vp = ProdVerifier::default();
-    let opt = Options {
-        trust_threshold: Default::default(),
-        // 2 week trusting period.
-        trusting_period: Duration::from_secs(14 * 24 * 60 * 60),
-        clock_drift: Default::default(),
-    };
-    let verify_time = first_block.time() + Duration::from_secs(20);
-    let verdict = vp.verify_update_header(
-        first_block.as_untrusted_state(),
-        genesis.as_trusted_state(),
-        &opt,
-        verify_time.unwrap(),
-    );
-    match verdict {
-        Verdict::Success => {println!("all good")},
-        _ => {println!("failed")}
-    }*/
+    for i in start..files.len() {
+        let prover_client = ProverClient::new();
+        let (pk, vk) = prover_client.setup(ELF);
+        let running_proof_public_values = running_proof.public_values.to_vec();
+        let mut stdin = SP1Stdin::new();
+        stdin.write(&vk.hash_u32());
+        stdin.write(&running_proof_public_values);
+        stdin.write_vec(genesis.clone().signed_header.header().hash().as_bytes().to_vec());
+        let encoded1 = serde_cbor::to_vec(&running_head).expect("failed to serialzie running head");
+        stdin.write_vec(encoded1);
+        let next_header_file = std::fs::File::open(format!("needed_headers/{}.json",&files[i])).expect("Could not open");
+        let next_header: Option<LightBlock> = Some(serde_json::from_reader(next_header_file).expect("could not parse"));
+        let encoded2 = serde_cbor::to_vec(&next_header).expect("coudl not serialize");
+        stdin.write_vec(encoded2);
+        let running_proof_inner = *match running_proof.proof.clone() {
+            SP1Proof::Compressed(c) => c,
+            _ => panic!("Not the right kind of SP1 proof")
+        };
+        stdin.write_proof(running_proof_inner, vk.vk);
+        println!("creating proof for {}", files[i]);
+        running_proof = prover_client.prove(&pk, stdin).compressed().run().expect("could not prove");
+        std::fs::write(format!("{}_proof.json", files[i]), serde_json::to_string(&running_proof).expect("could not json serialize")).expect("could not write");
+        running_head = next_header;
 
+    }
     Ok(())
+
 }
