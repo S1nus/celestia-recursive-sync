@@ -69,10 +69,12 @@ async fn main() -> anyhow::Result<()> {
             SP1Proof::Compressed(c) => c,
             _ => panic!("Not the right kind of SP1 proof")
         };
-        stdin.write_proof(running_proof_inner, vk.vk);
+        stdin.write_proof(running_proof_inner, vk.vk.clone());
         println!("creating proof for {}", files[i]);
-        running_proof = prover_client.prove(&pk, stdin).compressed().run().expect("could not prove");
-        std::fs::write(format!("{}_proof.json", files[i]), serde_json::to_string(&running_proof).expect("could not json serialize")).expect("could not write");
+        running_proof = prover_client.prove(&pk, stdin).groth16().run().expect("could not prove");
+        std::fs::write(format!("{}_groth16_proof.json", files[i]), serde_json::to_string(&running_proof).expect("could not json serialize")).expect("could not write");
+        println!("the vkey: {:?}", vk.vk);
+        return Ok(());
         running_head = next_header;
 
     }
