@@ -42,22 +42,17 @@ pub fn main() {
             // Ensure that we are verifying a proof of the same circuit as ourself
             let last_vkey_hash: Vec<u8> = public_values_buffer.read();
             if last_vkey_hash != hash_of_vkey.to_vec() {
-                panic!("not valid!");
+                panic!("vkeys do not match");
             }
             // Ensure that the previous proof has the same genesis hash as the current proof
             let last_genesis_hash: Vec<u8> = public_values_buffer.read();
             if last_genesis_hash != genesis_hash {
-                panic!("not valid!");
+                panic!("genesis does not match");
             }
             // Ensure that previous proof has the h2 hash as the current h1 hash
             let last_h2_hash: Vec<u8> = public_values_buffer.read();
             if last_h2_hash != h1.signed_header.header().hash().as_bytes() {
-                panic!("not valid!");
-            }
-            // Ensure that previous proof is valid
-            let last_result: bool = public_values_buffer.read();
-            if !last_result {
-                panic!("not valid!");
+                panic!("previous h2 does not match current h1");
             }
 
             // Verify the previous recursion layer
@@ -78,20 +73,13 @@ pub fn main() {
                 &opt,
                 verify_time.unwrap(),
             );
-            match verdict {
-                Verdict::Success => {
-                    sp1_zkvm::io::commit(&true);
-                },
-                _ => {
-                    panic!("verification failed");
-                }
+            if verdict != Verdict::Success {
+                panic!("verification failed");
             }
 
         },
         None => {
-            if h2.signed_header.header().hash().as_bytes() == genesis_hash {
-                sp1_zkvm::io::commit(&true);
-            } else {
+            if h2.signed_header.header().hash().as_bytes() != genesis_hash {
                 panic!("expected h2 == genesis hash");
             }
         }

@@ -1,5 +1,4 @@
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
-use bincode;
 
 /// A buffer of serializable/deserializable objects.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -24,11 +23,6 @@ impl Buffer {
         }
     }
 
-    /// Set the position ptr to the beginning of the buffer.
-    pub fn head(&mut self) {
-        self.ptr = 0;
-    }
-
     /// Read the serializable object from the buffer.
     pub fn read<T: Serialize + DeserializeOwned>(&mut self) -> T {
         let result: T =
@@ -36,23 +30,6 @@ impl Buffer {
         let nb_bytes = bincode::serialized_size(&result).expect("failed to get serialized size");
         self.ptr += nb_bytes as usize;
         result
-    }
-
-    pub fn read_slice(&mut self, slice: &mut [u8]) {
-        slice.copy_from_slice(&self.data[self.ptr..self.ptr + slice.len()]);
-        self.ptr += slice.len();
-    }
-
-    /// Write the serializable object from the buffer.
-    pub fn write<T: Serialize>(&mut self, data: &T) {
-        let mut tmp = Vec::new();
-        bincode::serialize_into(&mut tmp, data).expect("serialization failed");
-        self.data.extend(tmp);
-    }
-
-    /// Write the slice of bytes to the buffer.
-    pub fn write_slice(&mut self, slice: &[u8]) {
-        self.data.extend_from_slice(slice);
     }
 }
 
